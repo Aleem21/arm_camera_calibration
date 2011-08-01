@@ -1,0 +1,17 @@
+<package>
+  <description brief="arm_camera_calibration">
+
+     arm_camera_calibration
+
+  </description>
+  <author>Stephan Wirth</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/arm_camera_calibration</url>
+  <depend package="roscpp"/>
+  <depend package="tf"/>
+  <depend package="message_filters"/>
+
+</package>
+
+
