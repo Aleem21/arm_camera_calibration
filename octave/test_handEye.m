@@ -4,7 +4,8 @@ gripper_to_camera = randtrans();
 M = 15;
 
 bHg = zeros(4,4,M);
-wHg = zeros(4,4,M);
+wHc = zeros(4,4,M);
+cHw = zeros(4,4,M);
 for i = 1:M
     base_to_gripper = randtrans();
     world_to_camera = world_to_base * base_to_gripper * gripper_to_camera;
@@ -13,10 +14,13 @@ for i = 1:M
     noise = normal_rnd(noise_m, noise_v);
     bHg(:,:,i) = base_to_gripper; # + normal_rnd(noise_m, noise_v);
     wHc(:,:,i) = world_to_camera;
+    cHw(:,:,i) = inv(world_to_camera);
 end
 
 gHc = handEye(bHg, wHc);
+gHc2 = handEye2(bHg, cHw);
 
 gripper_to_camera
 gHc
+gHc2
 
