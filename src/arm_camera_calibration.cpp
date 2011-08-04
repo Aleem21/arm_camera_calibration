@@ -6,65 +6,126 @@
 #include <message_filters/subscriber.h>
 #include <message_filters/synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
+#include <actionlib/client/simple_action_client.h>
 #include <tf/transform_datatypes.h>
 
-/*
-   1   5   9   3
-   2   6   0   4
-   3   7   1   5
-   4   8   2   6
-*/
-void writePose(const geometry_msgs::Pose& pose_msg,
-        const std::string& file_name)
+#include <arm_control/MoveArmAction.h>
+
+#include <melfa/robot_pose.h>
+#include <melfa_ros/robot_path.h>
+
+class ArmCameraCalibration
 {
-    std::ofstream out(file_name.c_str());
-    if (!out.is_open())
+    ros::NodeHandle nh_;
+    ros::NodeHandle nh_private_;
+
+    message_filters::Subscriber<geometry_msgs::PoseStamped> arm_pose_sub_;
+    message_filters::Subscriber<geometry_msgs::PoseStamped> pattern_pose_sub_;
+    typedef message_filters::sync_policies::ApproximateTime<geometry_msgs::PoseStamped, geometry_msgs::PoseStamped> MySyncPolicy;
+    message_filters::Synchronizer<MySyncPolicy> poses_synchronizer_;
+    actionlib::SimpleActionClient<arm_control::MoveArmAction>  action_client_;
+
+    bool waypoint_reached_;
+
+    std::vector<melfa::RobotPose> calibration_path_;
+        
+  public:
+
+    ArmCameraCalibration() : nh_(), nh_private_("~"), 
+        arm_pose_sub_(nh_, "arm_pose", 1),
+        pattern_pose_sub_(nh_, "pattern_pose", 1),
+        poses_synchronizer_(MySyncPolicy(10), arm_pose_sub_, pattern_pose_sub_),
+        action_client_("robot_arm/arm_control_action_server"), 
+        waypoint_reached_(false)
     {
-        ROS_ERROR("Cannot write to file %s", file_name.c_str());
-        return;
+        // subscribe to synchronized pose topics
+        poses_synchronizer_.registerCallback(boost::bind(&ArmCameraCalibration::posesCallback, this, _1, _2));
+        ROS_INFO("Listening to synchronized topics %s and %s",
+            nh_.resolveName("arm_pose").c_str(),
+            nh_.resolveName("pattern_pose").c_str());
     }
-    tf::Pose pose;
-    tf::poseMsgToTF(pose_msg, pose);
-    btMatrix3x3 mat = pose.getBasis();
-    btVector3 origin = pose.getOrigin();
-    for (int col = 0; col < 4; ++col)
-        for (int row = 0; row < 4 ++row)
-            out << mat[row][col] << " ";
-    out << std::endl;
-    out.close();
-}
+
+    void init(const std::vector<melfa::RobotPose>& calibration_path)
+    {
+        calibration_path_ = calibration_path;
+
+        ROS_INFO("Waiting for move arm action server...");
+        action_client_.waitForServer();
+        ROS_INFO("Server has been started.");
+        sendNextWaypoint();
+    }
+
+    void sendNextWaypoint()
+    {
+        arm_control::MoveArmGoal goal;
+        action_client_.sendGoal(goal);
+    }
+
+    /*
+    1   5   9   3
+    2   6   0   4
+    3   7   1   5
+    4   8   2   6
+    */
+    void writePose(const geometry_msgs::Pose& pose_msg,
+            const std::string& file_name)
+    {
+        std::ofstream out(file_name.c_str());
+        if (!out.is_open())
+        {
+            ROS_ERROR("Cannot write to file %s", file_name.c_str());
+            return;
+        }
+        tf::Pose pose;
+        tf::poseMsgToTF(pose_msg, pose);
+        btMatrix3x3 mat = pose.getBasis();
+        btVector3 origin = pose.getOrigin();
+        for (int col = 0; col < 3; ++col)
+        {
+            for (int row = 0; row < 3; ++row)
+                out << mat[row][col] << " ";
+            out << "0" << " ";
+        }
+        for (int i = 0; i < 3; ++i)
+            out << origin[i] << " ";
+        out << "1" << std::endl;
+        out.close();
+    }
 
 
-
-void callback(const geometry_msgs::PoseStampedConstPtr& arm_pose_msg,
-    const geometry_msgs::PoseStampedConstPtr& pattern_pose_msg)
-{
-    ROS_INFO("Received arm and pattern poses sync'ed");
-    std::string arm_poses_file_name = ros::package::getPath(ROS_PACKAGE_NAME) + "/arm_poses.txt";
-    writePose(arm_pose_msg->pose, arm_poses_file_name);
-    std::string pattern_poses_file_name = ros::package::getPath(ROS_PACKAGE_NAME) + "/pattern_poses.txt";
-    writePose(pattern_pose_msg->pose, pattern_poses_file_name);
-}
+    void posesCallback(const geometry_msgs::PoseStampedConstPtr& arm_pose_msg,
+        const geometry_msgs::PoseStampedConstPtr& pattern_pose_msg)
+    {
+        ROS_INFO("Received arm and pattern poses sync'ed");
+        if (waypoint_reached_)
+        {
+            ROS_INFO("Waypoint reached, saving poses.");
+            std::string arm_poses_file_name = ros::package::getPath(ROS_PACKAGE_NAME) + "/arm_poses.txt";
+            writePose(arm_pose_msg->pose, arm_poses_file_name);
+            std::string pattern_poses_file_name = ros::package::getPath(ROS_PACKAGE_NAME) + "/pattern_poses.txt";
+            writePose(pattern_pose_msg->pose, pattern_poses_file_name);
+            waypoint_reached_ = false;
+            sendNextWaypoint();
+        }
+    }
+};
 
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "synchronized_pose_recorder");
+    ros::init(argc, argv, "arm_camera_calibration");
+    if (argc < 2)
+    {
+        std::cerr << "USAGE: " << argv[0] << " <calibration poses config file>" << std::endl;
+        exit(1);
+    }
 
-  ros::NodeHandle nh;
-  message_filters::Subscriber<geometry_msgs::PoseStamped> arm_pose_sub(nh, "arm_pose", 1);
-  message_filters::Subscriber<geometry_msgs::PoseStamped> pattern_pose_sub(nh, "pattern_pose", 1);
+    std::vector<melfa::RobotPose> calibration_poses = melfa_ros::readRobotPath(argv[1]);
 
-  ROS_INFO("Listening to synchronized topics %s and %s",
-          nh.resolveName("arm_pose").c_str(),
-          nh.resolveName("pattern_pose").c_str());
+    ArmCameraCalibration calibration;
+    calibration.init(calibration_poses);
 
-  typedef message_filters::sync_policies::ApproximateTime<geometry_msgs::PoseStamped, geometry_msgs::PoseStamped> MySyncPolicy;
-  // ApproximateTime takes a queue size as its constructor argument, hence MySyncPolicy(10)
-  message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), arm_pose_sub, pattern_pose_sub);
-  sync.registerCallback(boost::bind(&callback, _1, _2));
+    ros::spin();
 
-  ros::spin();
-
-  return 0;
+    return 0;
 }
 

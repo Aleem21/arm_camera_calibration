@@ -11,6 +11,8 @@
   <depend package="roscpp"/>
   <depend package="tf"/>
   <depend package="message_filters"/>
+  <depend package="arm_control"/>
+  <depend package="actionlib"/>
 
 </package>
 
