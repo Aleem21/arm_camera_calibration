@@ -1,6 +1,6 @@
-pattern_poses_file = fopen("test_pattern_poses.txt", "r");
+pattern_poses_file = fopen("pattern_poses.txt", "r");
 pattern_poses = fscanf(pattern_poses_file, "%f", Inf);
-arm_poses_file = fopen("test_arm_poses.txt", "r");
+arm_poses_file = fopen("arm_poses.txt", "r");
 arm_poses = fscanf(arm_poses_file, "%f", Inf);
 
 assert(rows(pattern_poses), rows(arm_poses));

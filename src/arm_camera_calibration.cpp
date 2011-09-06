@@ -9,10 +9,11 @@
 #include <actionlib/client/simple_action_client.h>
 #include <tf/transform_datatypes.h>
 
-#include <arm_control/MoveArmAction.h>
+#include <arm_control/MoveJointsAction.h>
 
-#include <melfa/robot_pose.h>
+#include <melfa/joint_state.h>
 #include <melfa_ros/robot_path.h>
+#include <melfa_ros/conversions.h>
 
 class ArmCameraCalibration
 {
@@ -23,11 +24,11 @@ class ArmCameraCalibration
     message_filters::Subscriber<geometry_msgs::PoseStamped> pattern_pose_sub_;
     typedef message_filters::sync_policies::ApproximateTime<geometry_msgs::PoseStamped, geometry_msgs::PoseStamped> MySyncPolicy;
     message_filters::Synchronizer<MySyncPolicy> poses_synchronizer_;
-    actionlib::SimpleActionClient<arm_control::MoveArmAction>  action_client_;
+    actionlib::SimpleActionClient<arm_control::MoveJointsAction>  action_client_;
 
     bool waypoint_reached_;
 
-    std::vector<melfa::RobotPose> calibration_path_;
+    std::queue<melfa::JointState> calibration_joint_states_;
         
   public:
 
@@ -35,7 +36,7 @@ class ArmCameraCalibration
         arm_pose_sub_(nh_, "arm_pose", 1),
         pattern_pose_sub_(nh_, "pattern_pose", 1),
         poses_synchronizer_(MySyncPolicy(10), arm_pose_sub_, pattern_pose_sub_),
-        action_client_("robot_arm/arm_control_action_server"), 
+        action_client_("robot_arm/move_joints_action_server"), 
         waypoint_reached_(false)
     {
         // subscribe to synchronized pose topics
@@ -45,9 +46,9 @@ class ArmCameraCalibration
             nh_.resolveName("pattern_pose").c_str());
     }
 
-    void init(const std::vector<melfa::RobotPose>& calibration_path)
+    void init(const std::queue<melfa::JointState>& joint_states)
     {
-        calibration_path_ = calibration_path;
+        calibration_joint_states_ = joint_states;
 
         ROS_INFO("Waiting for move arm action server...");
         action_client_.waitForServer();
@@ -57,8 +58,16 @@ class ArmCameraCalibration
 
     void sendNextWaypoint()
     {
-        arm_control::MoveArmGoal goal;
+        arm_control::MoveJointsGoal goal;
+        melfa_ros::jointStateToJointStateMsg(calibration_joint_states_.front(), goal.target_joint_state);
         action_client_.sendGoal(goal);
+        calibration_joint_states_.pop();
+        ROS_INFO("Sent next joint way point. %zu way points left.", calibration_joint_states_.size());
+        //wait for the action to return
+        action_client_.waitForResult();
+        actionlib::SimpleClientGoalState state = action_client_.getState();
+        ROS_INFO("Action finished: %s", state.toString().c_str());
+        waypoint_reached_ = true;
     }
 
     /*
@@ -119,10 +128,10 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    std::vector<melfa::RobotPose> calibration_poses = melfa_ros::readRobotPath(argv[1]);
+    std::queue<melfa::JointState> calibration_joint_states = melfa_ros::readJointPath(argv[1]);
 
     ArmCameraCalibration calibration;
-    calibration.init(calibration_poses);
+    calibration.init(calibration_joint_states);
 
     ros::spin();
 
