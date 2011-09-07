@@ -79,7 +79,7 @@ class ArmCameraCalibration
     void writePose(const geometry_msgs::Pose& pose_msg,
             const std::string& file_name)
     {
-        std::ofstream out(file_name.c_str());
+        std::ofstream out(file_name.c_str(), std::ios_base::app);
         if (!out.is_open())
         {
             ROS_ERROR("Cannot write to file %s", file_name.c_str());
@@ -114,7 +114,14 @@ class ArmCameraCalibration
             std::string pattern_poses_file_name = ros::package::getPath(ROS_PACKAGE_NAME) + "/pattern_poses.txt";
             writePose(pattern_pose_msg->pose, pattern_poses_file_name);
             waypoint_reached_ = false;
-            sendNextWaypoint();
+            if (calibration_joint_states_.size() > 0)
+            {
+                sendNextWaypoint();
+            }
+            else
+            {
+                ROS_INFO("All calibration poses reached and poses recorded.");
+            }
         }
     }
 };

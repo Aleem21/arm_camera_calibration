@@ -12,7 +12,8 @@ Preparations:
 Run software:
 * roscore
 * rosrun arm_control arm_control_node
-* rosrun pattern_pose_estimation checkerboard_detector_node
+* roslaunch fugu_configurations camera_flex_narrow_image_proc.launch
+* rosrun pattern_pose_estimation checkerboard_detector_node _rows:=4 _cols:=6 _size:=0.04 _calibrated:=true image:=/forward_stereo_camera/left/image_rect
 * rosrun rviz rviz
 You now should see poses of the checkerboard and the gripper in rviz when you
 display the transform hierarchy.
