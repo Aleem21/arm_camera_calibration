@@ -20,43 +20,44 @@ class ArmCameraCalibration
     ros::NodeHandle nh_;
     ros::NodeHandle nh_private_;
 
-    message_filters::Subscriber<geometry_msgs::PoseStamped> arm_pose_sub_;
-    message_filters::Subscriber<geometry_msgs::PoseStamped> pattern_pose_sub_;
-    typedef message_filters::sync_policies::ApproximateTime<geometry_msgs::PoseStamped, geometry_msgs::PoseStamped> MySyncPolicy;
-    message_filters::Synchronizer<MySyncPolicy> poses_synchronizer_;
+    ros::Subscriber arm_pose_sub_;
+    ros::Subscriber pattern_pose_sub_;
     actionlib::SimpleActionClient<arm_control::MoveJointsAction>  action_client_;
 
-    bool waypoint_reached_;
+    bool arm_pose_recorded_;
+    bool pattern_pose_recorded_;
 
     std::queue<melfa::JointState> calibration_joint_states_;
+
+    geometry_msgs::Pose last_arm_pose_;
+    geometry_msgs::Pose last_pattern_pose_;
         
   public:
 
     ArmCameraCalibration() : nh_(), nh_private_("~"), 
-        arm_pose_sub_(nh_, "arm_pose", 1),
-        pattern_pose_sub_(nh_, "pattern_pose", 1),
-        poses_synchronizer_(MySyncPolicy(10), arm_pose_sub_, pattern_pose_sub_),
-        action_client_("robot_arm/move_joints_action_server"), 
-        waypoint_reached_(false)
+        action_client_("robot_arm/move_joints_action_server")
     {
-        // subscribe to synchronized pose topics
-        poses_synchronizer_.registerCallback(boost::bind(&ArmCameraCalibration::posesCallback, this, _1, _2));
-        ROS_INFO("Listening to synchronized topics %s and %s",
+        ROS_INFO("Listening to topics %s and %s",
             nh_.resolveName("arm_pose").c_str(),
             nh_.resolveName("pattern_pose").c_str());
+        arm_pose_sub_ = nh_.subscribe("arm_pose", 1, &ArmCameraCalibration::armPoseCallback, this);
+        pattern_pose_sub_ = nh_.subscribe("pattern_pose", 1, &ArmCameraCalibration::patternPoseCallback, this);
     }
 
     void init(const std::queue<melfa::JointState>& joint_states)
     {
         calibration_joint_states_ = joint_states;
-
         ROS_INFO("Waiting for move arm action server...");
         action_client_.waitForServer();
         ROS_INFO("Server has been started.");
-        sendNextWaypoint();
     }
 
-    void sendNextWaypoint()
+    bool wayPointsLeft()
+    {
+        return (calibration_joint_states_.size() > 0);
+    }
+
+    void gotoNextWaypoint()
     {
         arm_control::MoveJointsGoal goal;
         melfa_ros::jointStateToJointStateMsg(calibration_joint_states_.front(), goal.target_joint_state);
@@ -67,9 +68,25 @@ class ArmCameraCalibration
         action_client_.waitForResult();
         actionlib::SimpleClientGoalState state = action_client_.getState();
         ROS_INFO("Action finished: %s", state.toString().c_str());
-        waypoint_reached_ = true;
     }
 
+    void recordPoses()
+    {
+        ROS_INFO("Waiting for pose messages...");
+        arm_pose_recorded_ = false;
+        pattern_pose_recorded_ = false;
+        while (!arm_pose_recorded_ || !pattern_pose_recorded_ )
+        {
+            ros::spinOnce();
+            if (!ros::ok()) return;
+        }
+        ROS_INFO("Saving poses.");
+        std::string arm_poses_file_name = ros::package::getPath(ROS_PACKAGE_NAME) + "/arm_poses.txt";
+        writePose(last_arm_pose_, arm_poses_file_name);
+        std::string pattern_poses_file_name = ros::package::getPath(ROS_PACKAGE_NAME) + "/pattern_poses.txt";
+        writePose(last_pattern_pose_, pattern_poses_file_name);
+    }
+ 
     /*
     1   5   9   3
     2   6   0   4
@@ -101,28 +118,16 @@ class ArmCameraCalibration
         out.close();
     }
 
-
-    void posesCallback(const geometry_msgs::PoseStampedConstPtr& arm_pose_msg,
-        const geometry_msgs::PoseStampedConstPtr& pattern_pose_msg)
+    void armPoseCallback(const geometry_msgs::PoseStampedConstPtr& arm_pose_msg)
     {
-        ROS_INFO("Received arm and pattern poses sync'ed");
-        if (waypoint_reached_)
-        {
-            ROS_INFO("Waypoint reached, saving poses.");
-            std::string arm_poses_file_name = ros::package::getPath(ROS_PACKAGE_NAME) + "/arm_poses.txt";
-            writePose(arm_pose_msg->pose, arm_poses_file_name);
-            std::string pattern_poses_file_name = ros::package::getPath(ROS_PACKAGE_NAME) + "/pattern_poses.txt";
-            writePose(pattern_pose_msg->pose, pattern_poses_file_name);
-            waypoint_reached_ = false;
-            if (calibration_joint_states_.size() > 0)
-            {
-                sendNextWaypoint();
-            }
-            else
-            {
-                ROS_INFO("All calibration poses reached and poses recorded.");
-            }
-        }
+        last_arm_pose_ = arm_pose_msg->pose;
+        arm_pose_recorded_ = true;
+    }
+
+    void patternPoseCallback(const geometry_msgs::PoseStampedConstPtr& pattern_pose_msg)
+    {
+        last_pattern_pose_ = pattern_pose_msg->pose;
+        pattern_pose_recorded_ = true;
     }
 };
 
@@ -139,8 +144,12 @@ int main(int argc, char** argv)
 
     ArmCameraCalibration calibration;
     calibration.init(calibration_joint_states);
-
-    ros::spin();
+    while (calibration.wayPointsLeft() && ros::ok())
+    {
+        calibration.gotoNextWaypoint();
+        calibration.recordPoses();
+    }
+    ROS_INFO("All calibration poses reached and poses recorded.");
 
     return 0;
 }
