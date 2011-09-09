@@ -1,0 +1,17 @@
+#! /usr/bin/octave -qf
+if (nargin != 2)
+    printf("Usage: %s <arm poses file> <pattern poses file>", program_name());
+    exit;
+end
+
+arg_list = argv ();
+arm_poses = read_transformations(arg_list{1});
+pattern_poses = read_transformations(arg_list{2});
+
+gripper_to_camera = handEye2(arm_poses, pattern_poses)
+
+RPYdeg = tr2rpy(gripper_to_camera) / pi * 180.0;
+
+printf("(X, Y, Z, R, P, Y): (%f, %f, %f, %f, %f, %f)",
+        gripper_to_camera(1,4), gripper_to_camera(2,4), gripper_to_camera(3,4), 
+        RPYdeg(3), RPYdeg(2), RPYdeg(1));
