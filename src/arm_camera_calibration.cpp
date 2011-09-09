@@ -72,6 +72,7 @@ class ArmCameraCalibration
         ROS_INFO("Action finished: %s", state.toString().c_str());
         sleep(1); // let the robot arm stay still a moment
         waypoint_reached_time_ = ros::Time::now();
+        ROS_DEBUG_STREAM("Waypoint reached at " << waypoint_reached_time_);
     }
 
     void recordPoses()
@@ -83,7 +84,10 @@ class ArmCameraCalibration
         {
             ros::spinOnce();
             if (!ros::ok()) return;
+            if (!arm_pose_recorded_) ROS_DEBUG("Arm pose still missing");
+            if (!pattern_pose_recorded_) ROS_DEBUG("Pattern pose still missing");
         }
+        ROS_DEBUG("Both poses received.");
         ROS_INFO("Saving poses.");
         std::string arm_poses_file_name = ros::package::getPath(ROS_PACKAGE_NAME) + "/arm_poses.txt";
         writePose(last_arm_pose_, arm_poses_file_name);
@@ -124,6 +128,7 @@ class ArmCameraCalibration
 
     void armPoseCallback(const geometry_msgs::PoseStampedConstPtr& arm_pose_msg)
     {
+        ROS_DEBUG_STREAM("Received arm pose message with time " << arm_pose_msg->header.stamp);
         if (arm_pose_msg->header.stamp > waypoint_reached_time_)
         {
             last_arm_pose_ = arm_pose_msg->pose;
@@ -131,12 +136,13 @@ class ArmCameraCalibration
         }
         else
         {
-            ROS_INFO("Arm pose message too old, waiting for next.");
+            ROS_DEBUG_STREAM("Arm pose message too old, waiting for next.");
         }
     }
 
     void patternPoseCallback(const geometry_msgs::PoseStampedConstPtr& pattern_pose_msg)
     {
+        ROS_DEBUG_STREAM("Received pattern pose message with time " << pattern_pose_msg->header.stamp);
         if (pattern_pose_msg->header.stamp > waypoint_reached_time_)
         {
             last_pattern_pose_ = pattern_pose_msg->pose;
@@ -144,7 +150,7 @@ class ArmCameraCalibration
         }
         else
         {
-            ROS_INFO("Pattern pose message too old, waiting for next.");
+            ROS_DEBUG_STREAM("Pattern pose message too old, waiting for next.");
         }
     }
 };
