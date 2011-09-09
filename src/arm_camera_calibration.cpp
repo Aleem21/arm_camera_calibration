@@ -31,6 +31,8 @@ class ArmCameraCalibration
 
     geometry_msgs::Pose last_arm_pose_;
     geometry_msgs::Pose last_pattern_pose_;
+
+    ros::Time waypoint_reached_time_;
         
   public:
 
@@ -68,6 +70,8 @@ class ArmCameraCalibration
         action_client_.waitForResult();
         actionlib::SimpleClientGoalState state = action_client_.getState();
         ROS_INFO("Action finished: %s", state.toString().c_str());
+        sleep(1); // let the robot arm stay still a moment
+        waypoint_reached_time_ = ros::Time::now();
     }
 
     void recordPoses()
@@ -120,14 +124,28 @@ class ArmCameraCalibration
 
     void armPoseCallback(const geometry_msgs::PoseStampedConstPtr& arm_pose_msg)
     {
-        last_arm_pose_ = arm_pose_msg->pose;
-        arm_pose_recorded_ = true;
+        if (arm_pose_msg->header.stamp > waypoint_reached_time_)
+        {
+            last_arm_pose_ = arm_pose_msg->pose;
+            arm_pose_recorded_ = true;
+        }
+        else
+        {
+            ROS_INFO("Arm pose message too old, waiting for next.");
+        }
     }
 
     void patternPoseCallback(const geometry_msgs::PoseStampedConstPtr& pattern_pose_msg)
     {
-        last_pattern_pose_ = pattern_pose_msg->pose;
-        pattern_pose_recorded_ = true;
+        if (pattern_pose_msg->header.stamp > waypoint_reached_time_)
+        {
+            last_pattern_pose_ = pattern_pose_msg->pose;
+            pattern_pose_recorded_ = true;
+        }
+        else
+        {
+            ROS_INFO("Pattern pose message too old, waiting for next.");
+        }
     }
 };
 
