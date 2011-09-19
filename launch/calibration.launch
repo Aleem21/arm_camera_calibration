@@ -1,0 +1,34 @@
+<launch>
+
+  <arg name="stereo" default="camera_flex_narrow" />
+
+  <include file="$(find fugu_configurations)/launch/stereo_pipeline.launch">
+    <arg name="stereo" value="$(arg stereo)" />
+    <arg name="configuration" value="boxed_air" />
+  </include>
+
+  <node name="arm_control" pkg="arm_control" type="arm_control_node" output="screen">
+    <param name="override" value="5" />
+    <param name="tool_x" value="0.0" />
+    <param name="tool_y" value="0.0" />
+    <param name="tool_z" value="0.0" />
+    <param name="tool_roll" value="0.0" />
+    <param name="tool_pitch" value="0.0" />
+    <param name="tool_yaw" value="0.0" />
+  </node>
+
+  <node name="pattern_pose_estimator" pkg="pattern_pose_estimation" type="checkerboard_detector_node">
+    <remap from="image" to="$(arg stereo)/left/image_rect" />
+    <param name="rows" value="6" />
+    <param name="cols" value="9" />
+    <param name="size" value="0.0399" />
+    <param name="show_detection" value="true" />
+  </node>
+
+  <node name="calibrator" pkg="arm_camera_calibration" type="arm_camera_calibration" output="screen" 
+    args="$(find arm_camera_calibration)/data/calibration_path.yaml" >
+    <remap from="pattern_pose" to="checkerboard_pose" />
+    <remap from="arm_pose" to="robot_arm/tool_pose" />
+  </node>
+
+</launch>
