@@ -10,8 +10,13 @@ pattern_poses = read_transformations(arg_list{2});
 
 gripper_to_camera = handEye2(arm_poses, pattern_poses)
 
-RPYdeg = tr2rpy(gripper_to_camera) / pi * 180.0;
+RPY = tr2rpy(gripper_to_camera);
+RPYdeg = RPY / pi * 180.0;
 
-printf("(X, Y, Z, R, P, Y): (%f, %f, %f, %f, %f, %f)",
+printf("Degrees: (X, Y, Z, R, P, Y): (%f, %f, %f, %f, %f, %f)\n",
         gripper_to_camera(1,4), gripper_to_camera(2,4), gripper_to_camera(3,4), 
         RPYdeg(3), RPYdeg(2), RPYdeg(1));
+
+printf("Radiants: (X, Y, Z, R, P, Y): (%f, %f, %f, %f, %f, %f)\n",
+        gripper_to_camera(1,4), gripper_to_camera(2,4), gripper_to_camera(3,4), 
+        RPY(3), RPY(2), RPY(1));
