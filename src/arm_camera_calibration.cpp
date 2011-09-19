@@ -33,6 +33,9 @@ class ArmCameraCalibration
     geometry_msgs::Pose last_pattern_pose_;
 
     ros::Time waypoint_reached_time_;
+
+    std::string arm_poses_filename_;
+    std::string pattern_poses_filename_;
         
   public:
 
@@ -52,6 +55,12 @@ class ArmCameraCalibration
         ROS_INFO("Waiting for move arm action server...");
         action_client_.waitForServer();
         ROS_INFO("Server has been started.");
+
+        // create the (empty) pose files
+        arm_poses_filename_ = ros::package::getPath(ROS_PACKAGE_NAME) + "/arm_poses.txt";
+        pattern_poses_filename_ = ros::package::getPath(ROS_PACKAGE_NAME) + "/pattern_poses.txt";
+        std::ofstream out(arm_poses_filename_.c_str());
+        std::ofstream out2(pattern_poses_filename_.c_str());
     }
 
     bool wayPointsLeft()
@@ -89,10 +98,8 @@ class ArmCameraCalibration
         }
         ROS_DEBUG("Both poses received.");
         ROS_INFO("Saving poses.");
-        std::string arm_poses_file_name = ros::package::getPath(ROS_PACKAGE_NAME) + "/arm_poses.txt";
-        writePose(last_arm_pose_, arm_poses_file_name);
-        std::string pattern_poses_file_name = ros::package::getPath(ROS_PACKAGE_NAME) + "/pattern_poses.txt";
-        writePose(last_pattern_pose_, pattern_poses_file_name);
+        writePose(last_arm_pose_, arm_poses_filename_);
+        writePose(last_pattern_pose_, pattern_poses_filename_);
     }
  
     /*
