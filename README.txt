@@ -17,9 +17,10 @@ Run software:
 If everything works fine, the calibration procedure should steer the robot into
 the poses that are given in calibration_path.yaml and write pattern and arm poses
 to two files in arm_camera_calibration/: pattern_poses.txt and arm_poses.txt.
-When all poses are written you can shut down the launch file.
+When all poses are written the launch file gets shut down.
 
-* ./octave/calibration arm_poses.txt pattern_poses.txt
+* cd octave
+* ./calibration ../arm_poses.txt ../pattern_poses.txt
 This runs the transformation computation using the written arm_poses.txt and
 pattern_poses.txt
 The transformation is printed on the screen. Use the last column of the matrix
