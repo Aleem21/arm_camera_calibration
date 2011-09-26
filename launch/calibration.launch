@@ -26,7 +26,7 @@
   </node>
 
   <node name="calibrator" pkg="arm_camera_calibration" type="arm_camera_calibration" output="screen" 
-    args="$(find arm_camera_calibration)/data/calibration_path.yaml" >
+    args="$(find arm_camera_calibration)/data/calibration_path.yaml" required="true" >
     <remap from="pattern_pose" to="checkerboard_pose" />
     <remap from="arm_pose" to="robot_arm/tool_pose" />
   </node>
