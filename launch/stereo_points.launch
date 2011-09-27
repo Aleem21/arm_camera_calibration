@@ -1,0 +1,15 @@
+<launch>
+
+  <node name="player" pkg="rosbag" type="play" args="-l /home/stwirth/bagfiles/square_360_circles_2011-09-20-10-18-07.bag" />
+
+  <node name="stereo_image_proc" pkg="stereo_image_proc" type="stereo_image_proc" ns="camera_flex_narrow" />
+
+  <node name="plane_fitting" pkg="stereo_feature_extraction" type="plane_fitting_node" output="screen">
+    <remap from="point_cloud" to="camera_flex_narrow/point_cloud" />
+  </node>
+
+  <include file="$(find stereo_feature_extraction)/launch/stereo_feature_extractor_standalone.launch">
+    <arg name="camera" value="camera_flex_narrow" />
+  </include>
+
+</launch>
