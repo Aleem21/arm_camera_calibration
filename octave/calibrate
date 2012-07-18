@@ -10,7 +10,13 @@ all_pattern_poses = read_transformations(arg_list{2});
 
 num_poses = size(all_arm_poses, 3);
 
+printf("Found %i poses.\n", num_poses);
+
+step = num_poses/10;
+
 for i = 1:num_poses
+
+  printf("*** Leaving out pose %i: *** \n", i);
 
   arm_poses = all_arm_poses(:,:,[1:i-1, i+1:num_poses]);
   pattern_poses = all_pattern_poses(:,:,[1:i-1, i+1:num_poses]);
@@ -19,7 +25,7 @@ for i = 1:num_poses
 
   RPY = tr2rpy(gripper_to_camera);
   RPYdeg = RPY / pi * 180.0;
-
+  
   printf("Degrees: (X, Y, Z, R, P, Y): (%f, %f, %f, %f, %f, %f)\n",
           gripper_to_camera(1,4), gripper_to_camera(2,4), gripper_to_camera(3,4), 
           RPYdeg(3), RPYdeg(2), RPYdeg(1));
@@ -29,5 +35,5 @@ for i = 1:num_poses
           RPY(3), RPY(2), RPY(1));
 end
 
-check_calibration(gripper_to_camera, all_arm_poses, all_pattern_poses)
+[tm, td, rm, rd] = check_calibration(gripper_to_camera, all_arm_poses, all_pattern_poses)
 
