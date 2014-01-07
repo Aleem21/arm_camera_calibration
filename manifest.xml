@@ -13,6 +13,7 @@
   <depend package="message_filters"/>
   <depend package="arm_control"/>
   <depend package="actionlib"/>
+  <depend package="roslib"/>  
 
 </package>
 

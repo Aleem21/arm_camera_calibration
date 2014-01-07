@@ -119,8 +119,8 @@ class ArmCameraCalibration
         }
         tf::Pose pose;
         tf::poseMsgToTF(pose_msg, pose);
-        btMatrix3x3 mat = pose.getBasis();
-        btVector3 origin = pose.getOrigin();
+        tf::Matrix3x3 mat = pose.getBasis();
+        tf::Vector3 origin = pose.getOrigin();
         for (int col = 0; col < 3; ++col)
         {
             for (int row = 0; row < 3; ++row)

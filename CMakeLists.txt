@@ -9,6 +9,7 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 #  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
 #set(ROS_BUILD_TYPE RelWithDebInfo)
 
+
 rosbuild_init()
 
 #set the default path for built executables to the "bin" directory
@@ -25,7 +26,6 @@ include_directories(${PROJECT_SOURCE_DIR}/include/${PROJECT_NAME})
 
 #rosbuild_add_library(${PROJECT_NAME} src/extrinsic_calibration.cpp)
 rosbuild_add_executable(arm_camera_calibration src/arm_camera_calibration.cpp)
-#target_link_libraries(arm_camera_calibration_node ${PROJECT_NAME})
 
 #common commands for building c++ executables and libraries
 #target_link_libraries(${PROJECT_NAME} another_library)
